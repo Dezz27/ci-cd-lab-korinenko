@@ -2,7 +2,10 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
+
+env:
+  IMAGE: ${{ secrets.DOCKER_USERNAME }}/my-flask-app
 
 jobs:
   build:
@@ -21,13 +24,33 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+    # Сборка/пуш для production (main)
+    - name: Build & Push (main)
+      if: github.ref == 'refs/heads/main'
+      uses: docker/build-push-action@v6
       with:
         context: .
-        file: ./Dockerfile
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest
+        tags: |
+          ${{ env.IMAGE }}:latest
+          ${{ env.IMAGE }}:${{ github.sha }}
 
-    - name: Deploy
-      run: echo "Деплой приложения завершен успешно!"
+    # Сборка/пуш для development (develop)
+    - name: Build & Push (develop)
+      if: github.ref == 'refs/heads/develop'
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.IMAGE }}:develop
+          ${{ env.IMAGE }}:dev-${{ github.sha }}
+
+    # Условный "деплой"
+    - name: Deploy to production
+      if: github.ref == 'refs/heads/main'
+      run: echo "Deploying to production server..."
+
+    - name: Deploy to development
+      if: github.ref == 'refs/heads/develop'
+      run: echo "Deploying to development server..."
